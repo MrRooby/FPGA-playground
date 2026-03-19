@@ -1,0 +1,39 @@
+`timescale 1ns / 1ps
+
+module testbench;
+    reg clk;
+    reg start;
+    reg [23:0] data;
+    wire tx;
+    wire busy;
+
+    // Instantiate the module under test
+    ws_tx uut (
+        .clk(clk),
+        .start(start),
+        .data(data),
+        .tx(tx),
+        .busy(busy)
+    );
+
+    // Generate 27MHz clock (37ns period)
+    always #18.5 clk = ~clk;
+
+    initial begin
+        $dumpfile("dump.vcd");
+        $dumpvars(0, testbench);
+
+        clk = 0;
+        start = 0;
+        data = 24'b11010101_10000001_11111111;  // Red color
+
+        #100;
+        start = 1;
+        #37;  // One clock cycle (27MHz)
+        start = 0;
+
+        // Wait for transmission to complete
+        #500000;
+        $finish;
+    end
+endmodule

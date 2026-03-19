@@ -121,19 +121,23 @@ module fifo #(
 )(
     input wire clk,
     input wire start,
-    input wire tx
+    output reg busy,
+    output reg tx
 );
 
     reg [23:0] mem [0:NUM_LEDS-1];
     reg [2:0] state;
     reg [NUM_LEDS-1:0] led_index;
+    reg [23:0] led_data;
+    reg gap;
 
     ws_tx strip1 (
         .clk(clk),
         .start(start),
         .data(led_data),
-        .tx(rgb_led),
-        .busy(busy)
+        .tx(tx),
+        .busy(busy),
+        .gap(gap)
     );
 
 
@@ -160,7 +164,7 @@ module fifo #(
 
             SEND_BYTE: begin 
                 if(!busy) begin
-                    data <= mem[led_index];
+                    led_data <= mem[led_index];
                     state <= NEXT_BYTE;
                 end else state <= IDLE;
             end
@@ -185,7 +189,4 @@ module fifo #(
         endcase
         
     end
-
-
-
 endmodule

@@ -15,12 +15,10 @@ module top
         start <= 1'b1;
     end
 
-    ws_tx strip1 (
+    fifo strip1(
         .clk(clk),
         .start(start),
-        .data(led_data),
-        .tx(rgb_led),
-        .busy(busy)
+        .tx(rgb_led)
     );
 
 endmodule

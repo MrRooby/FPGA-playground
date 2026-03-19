@@ -14,6 +14,7 @@ module ws_tx#(
 )(                              // but there were some mistakes below 1700
     input wire clk,
     input wire start,
+    input wire gap,
     input wire [23:0] data,
     output reg tx,
     output reg busy
@@ -32,6 +33,11 @@ module ws_tx#(
     localparam GAP       = 5;
 
     reg current_bit;
+
+    always @(posedge gap) begin
+        state <= GAP;
+        busy <= 1;
+    end
 
     always @(posedge clk) begin
             case (state)
@@ -87,7 +93,7 @@ module ws_tx#(
 
                 NEXT_BIT: begin
                     if (bit_index == 0) begin
-                        state <= GAP;
+                        state <= IDLE;
                     end else begin
                         bit_index <= bit_index - 1;
                         state <= SEND_HIGH;
@@ -107,5 +113,79 @@ module ws_tx#(
 
             endcase
     end
+
+endmodule
+
+module fifo #(
+    parameter NUM_LEDS = 5
+)(
+    input wire clk,
+    input wire start,
+    input wire tx
+);
+
+    reg [23:0] mem [0:NUM_LEDS-1];
+    reg [2:0] state;
+    reg [NUM_LEDS-1:0] led_index;
+
+    ws_tx strip1 (
+        .clk(clk),
+        .start(start),
+        .data(led_data),
+        .tx(rgb_led),
+        .busy(busy)
+    );
+
+
+    localparam INIT = 0;
+    localparam IDLE = 1;
+    localparam SEND_BYTE = 2;
+    localparam NEXT_BYTE = 3;
+    localparam GAP = 4;
+
+    always @(posedge clk) begin
+        case (state)
+            INIT: begin 
+                if (start) begin
+                    led_index <= 0;
+                    state <= SEND_BYTE;                    
+                end
+            end
+
+            IDLE: begin 
+                if (!busy) begin
+                    state <= SEND_BYTE;                    
+                end
+            end
+
+            SEND_BYTE: begin 
+                if(!busy) begin
+                    data <= mem[led_index];
+                    state <= NEXT_BYTE;
+                end else state <= IDLE;
+            end
+
+            NEXT_BYTE: begin 
+                if(led_index >= NUM_LEDS-1) begin
+                    state <= GAP;
+                    led_index <= 0;
+                end else begin
+                    led_index <= led_index + 1;
+                    state <= SEND_BYTE;
+                end
+            end
+
+            GAP: begin 
+                if(!busy) begin
+                    gap <= 1;
+                    state <= INIT;
+                end
+            end
+            default: state <= IDLE;
+        endcase
+        
+    end
+
+
 
 endmodule

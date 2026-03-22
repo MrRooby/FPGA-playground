@@ -13,7 +13,6 @@ module led_tx#(
     parameter T_GAP    = 1700   // gap between frames above 50us which comes up to around 1400 
 )(                              // but there were some mistakes below 1700
     input wire clk,
-    input wire rst,
     input wire start,
     input wire gap,
     input wire [23:0] data,
@@ -33,14 +32,7 @@ module led_tx#(
     localparam GAP       = 5;
 
     always @(posedge clk) begin
-        if (rst) begin
-            led_state <= IDLE;
-            tx <= 1'b0;
-            busy <= 1'b0;
-            counter <= 16'b0;
-            shift_reg <= 24'b0;
-            bit_index <= 5'b0;
-        end else if (gap) begin
+        if (gap) begin
             led_state <= GAP;
         end else begin
             case (led_state)

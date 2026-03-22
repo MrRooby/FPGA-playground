@@ -1,48 +1,45 @@
 `timescale 1ns / 1ps
 
 module testbench;
-    localparam NUM_LEDS = 5;
+    localparam integer CLK_HALF_NS = 18; // ~27 MHz
 
-    reg clk = 1'b0;
-    reg start = 1'b0;
+    reg  clk  = 1'b0;
+    reg  btn1 = 1'b0; // currently unused by top.v
+    wire rgb_led;
 
-    reg [23:0] led_mem [0:NUM_LEDS-1];
-    wire [NUM_LEDS*24-1:0] mem_flat;
+    integer start_pulses = 0;
 
-    wire tx;
-    wire busy;
-
-    // Same packing order as top.v
-    assign mem_flat = {led_mem[4], led_mem[3], led_mem[2], led_mem[1], led_mem[0]};
-
-    // DUT: same module/interface as top.v
-    strip_tx #(.NUM_LEDS(NUM_LEDS)) strip (
+    // DUT: top-level module (matches current top.v ports)
+    top dut (
+        .rgb_led(rgb_led),
         .clk(clk),
-        .mem_flat(mem_flat),
-        .start(start),
-        .tx(tx)
+        .btn1(btn1)
     );
 
-    // 27MHz clock ~= 37ns period
-    always #18.5 clk = ~clk;
+    always #CLK_HALF_NS clk = ~clk;
+
+    // Observe internal start activity from top
+    always @(posedge clk) begin
+        if (dut.start)
+            start_pulses <= start_pulses + 1;
+    end
 
     initial begin
         $dumpfile("dump.vcd");
         $dumpvars(0, testbench);
 
-        // Same LED pattern as top.v
-        led_mem[0] = 24'h0000aa;
-        led_mem[1] = 24'h00aa00;
-        led_mem[2] = 24'h00aaaa;
-        led_mem[3] = 24'haa0000;
-        led_mem[4] = 24'haa00aa;
+        // Let design run
+        repeat (250000) @(posedge clk);
 
-        // Mimic top.v behavior: start becomes 1 and stays high
-        repeat (2) @(posedge clk);
-        start = 1'b1;
+        $display("INFO: start_pulses=%0d busy=%0b rgb_led=%0b", start_pulses, dut.busy, rgb_led);
 
-        // Run long enough to observe multiple transfers
-        repeat (200000) @(posedge clk);
+        // Simple smoke check for current auto-start behavior
+        if (start_pulses < 1) begin
+            $display("FAIL: expected at least one start pulse");
+            $fatal(1);
+        end else begin
+            $display("PASS: top.v generated start activity");
+        end
 
         $finish;
     end

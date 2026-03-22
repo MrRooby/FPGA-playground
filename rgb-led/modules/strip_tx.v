@@ -4,7 +4,8 @@ module strip_tx#(
     input wire clk,
     input wire start,
     input wire [NUM_LEDS*24-1:0] mem_flat,
-    output wire tx
+    output wire tx,
+    output reg strip_busy
 );
 
     reg [2:0] strip_state;
@@ -41,9 +42,11 @@ module strip_tx#(
                 if (start) begin
                     led_index <= 0;
                     gap_counter <= 0;
+                    strip_busy <= 1;
                     strip_state <= LOAD;                    
                 end else begin
                     strip_state <= INIT;
+                    strip_busy <= 0;
                 end
             end
 

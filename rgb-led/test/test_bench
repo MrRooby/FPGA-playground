@@ -1,39 +1,49 @@
 `timescale 1ns / 1ps
 
 module testbench;
-    reg clk;
-    reg start;
-    reg [23:0] data;
+    localparam NUM_LEDS = 5;
+
+    reg clk = 1'b0;
+    reg start = 1'b0;
+
+    reg [23:0] led_mem [0:NUM_LEDS-1];
+    wire [NUM_LEDS*24-1:0] mem_flat;
+
     wire tx;
     wire busy;
 
-    // Instantiate the module under test
-    ws_tx uut (
+    // Same packing order as top.v
+    assign mem_flat = {led_mem[4], led_mem[3], led_mem[2], led_mem[1], led_mem[0]};
+
+    // DUT: same module/interface as top.v
+    strip_tx #(.NUM_LEDS(NUM_LEDS)) strip (
         .clk(clk),
+        .mem_flat(mem_flat),
         .start(start),
-        .data(data),
-        .tx(tx),
-        .busy(busy)
+        .tx(tx)
     );
 
-    // Generate 27MHz clock (37ns period)
+    // 27MHz clock ~= 37ns period
     always #18.5 clk = ~clk;
 
     initial begin
         $dumpfile("dump.vcd");
         $dumpvars(0, testbench);
 
-        clk = 0;
-        start = 0;
-        data = 24'b11010101_10000001_11111111;  // Red color
+        // Same LED pattern as top.v
+        led_mem[0] = 24'h0000aa;
+        led_mem[1] = 24'h00aa00;
+        led_mem[2] = 24'h00aaaa;
+        led_mem[3] = 24'haa0000;
+        led_mem[4] = 24'haa00aa;
 
-        #100;
-        start = 1;
-        #37;  // One clock cycle (27MHz)
-        start = 0;
+        // Mimic top.v behavior: start becomes 1 and stays high
+        repeat (2) @(posedge clk);
+        start = 1'b1;
 
-        // Wait for transmission to complete
-        #500000;
+        // Run long enough to observe multiple transfers
+        repeat (200000) @(posedge clk);
+
         $finish;
     end
 endmodule

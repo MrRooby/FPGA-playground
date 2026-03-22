@@ -4,18 +4,17 @@ module top
     input wire clk
 );
 
-    reg [23:0] led_data;
     reg start;
     reg [23:0] led_mem [0:4];
     wire [5*24-1:0] led_mem_flat;
     assign led_mem_flat = {led_mem[4], led_mem[3], led_mem[2], led_mem[1], led_mem[0]};
 
     always @(posedge clk) begin
-        led_mem[0] <= 24'h00000f;
+        led_mem[0] <= 24'h0f0000;
         led_mem[1] <= 24'h000f00;
-        led_mem[2] <= 24'h00000f;
+        led_mem[2] <= 24'h0f0000;
         led_mem[3] <= 24'h000f00;
-        led_mem[4] <= 24'h00000f;
+        led_mem[4] <= 24'h0f0000;
         start <= 1'b1;
     end
 

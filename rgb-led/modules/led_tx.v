@@ -8,13 +8,11 @@ module led_tx#(
     parameter T_LOW_1  = 12,  // e.g. 0.45us
 
     parameter T_HIGH_0 = 11,  // e.g. 0.4us
-    parameter T_LOW_0  = 23,  // e.g. 0.85us
+    parameter T_LOW_0  = 23  // e.g. 0.85us
 
-    parameter T_GAP    = 1700   // gap between frames above 50us which comes up to around 1400 
 )(                              // but there were some mistakes below 1700
     input wire clk,
     input wire start,
-    input wire gap,
     input wire [23:0] data,
     output reg tx,
     output reg busy
@@ -29,84 +27,68 @@ module led_tx#(
     localparam SEND_HIGH = 2;
     localparam SEND_LOW  = 3;
     localparam NEXT_BIT  = 4;
-    localparam GAP       = 5;
 
     always @(posedge clk) begin
-        if (gap) begin
-            led_state <= GAP;
-        end else begin
-            case (led_state)
-                IDLE: begin
-                    tx <= 1'b0;
-                    busy <= 1'b0;
-                    counter <= 16'b0;
+        case (led_state)
+            IDLE: begin
+                tx <= 1'b0;
+                busy <= 1'b0;
+                counter <= 16'b0;
 
-                    if (start) begin
-                        led_state <= LOAD;
-                    end else if (gap) begin
-                        busy <= 1'b1;
-                        led_state <= GAP;
-                    end
+                if (start) begin
+                    led_state <= LOAD;
+                end else led_state <= IDLE;
+            end
+            
+            LOAD: begin
+                shift_reg <= data;
+                bit_index <= 23;
+                busy <= 1;
+                led_state <= SEND_HIGH;
+                counter <= 0;
+            end
+
+            SEND_HIGH: begin
+                tx <= 1;
+
+                if (shift_reg[bit_index]) begin
+                    if (counter >= T_HIGH_1) begin
+                        counter <= 0;
+                        led_state <= SEND_LOW;
+                    end else counter <= counter + 1;
+                end else begin
+                    if (counter >= T_HIGH_0) begin
+                        counter <= 0;
+                        led_state <= SEND_LOW;
+                    end else counter <= counter + 1;
                 end
+            end
 
-                LOAD: begin
-                    shift_reg <= data;
-                    bit_index <= 23;
-                    busy <= 1;
+            SEND_LOW: begin
+                tx <= 0;
+                if (shift_reg[bit_index]) begin
+                    if (counter >= T_LOW_1) begin
+                        counter <= 0;
+                        led_state <= NEXT_BIT;
+                    end else counter <= counter + 1;
+                end else begin
+                    if (counter >= T_LOW_0) begin
+                        counter <= 0;
+                        led_state <= NEXT_BIT;
+                    end else counter <= counter + 1;
+                end
+            end
+
+            NEXT_BIT: begin
+                if (bit_index == 0) begin
+                    led_state <= IDLE;
+                end else begin
+                    bit_index <= bit_index - 1;
                     led_state <= SEND_HIGH;
-                    counter <= 0;
                 end
+            end
 
-                SEND_HIGH: begin
-                    tx <= 1;
-
-                    if (shift_reg[bit_index]) begin
-                        if (counter >= T_HIGH_1) begin
-                            counter <= 0;
-                            led_state <= SEND_LOW;
-                        end else counter <= counter + 1;
-                    end else begin
-                        if (counter >= T_HIGH_0) begin
-                            counter <= 0;
-                            led_state <= SEND_LOW;
-                        end else counter <= counter + 1;
-                    end
-                end
-
-                SEND_LOW: begin
-                    tx <= 0;
-                    if (shift_reg[bit_index]) begin
-                        if (counter >= T_LOW_1) begin
-                            counter <= 0;
-                            led_state <= NEXT_BIT;
-                        end else counter <= counter + 1;
-                    end else begin
-                        if (counter >= T_LOW_0) begin
-                            counter <= 0;
-                            led_state <= NEXT_BIT;
-                        end else counter <= counter + 1;
-                    end
-                end
-
-                NEXT_BIT: begin
-                    if (bit_index == 0) begin
-                        led_state <= IDLE;
-                    end else begin
-                        bit_index <= bit_index - 1;
-                        led_state <= SEND_HIGH;
-                    end
-                end
-
-                GAP: begin
-                    tx <= 0;
-                    if(counter >= T_GAP) begin
-                        counter <= 0; 
-                        led_state <= IDLE;
-                    end else counter <= counter + 1; 
-                end
-
-                default: led_state <= IDLE;
-            endcase
-        end
+            default: led_state <= IDLE;
+        endcase
     end
 endmodule
